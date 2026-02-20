@@ -1,28 +1,48 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Canvas Test</title>
+<title>3D Bebek</title>
+<style>
+body{margin:0;overflow:hidden;background:pink;}
+</style>
 </head>
-<body style="margin:0;background:black;">
+<body>
 
-<canvas id="c"></canvas>
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.152.2/build/three.module.js";
 
-<script>
-var canvas = document.getElementById("c");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-var ctx = canvas.getContext("2d");
+camera.position.z = 5;
 
-ctx.fillStyle = "pink";
-ctx.beginPath();
-ctx.arc(canvas.width/2, canvas.height/2, 100, 0, Math.PI*2);
-ctx.fill();
+const light = new THREE.DirectionalLight(0xffffff,1);
+light.position.set(5,5,5);
+scene.add(light);
 
-ctx.fillStyle = "black";
-ctx.font = "30px Arial";
-ctx.fillText("BEBEK GÖRÜNÜYOR", canvas.width/2-120, canvas.height/2+150);
+const head = new THREE.Mesh(
+new THREE.SphereGeometry(1.5,64,64),
+new THREE.MeshStandardMaterial({color:0xffd6c9})
+);
+scene.add(head);
+
+function animate(){
+requestAnimationFrame(animate);
+head.rotation.y += 0.01;
+renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener("resize",()=>{
+camera.aspect = window.innerWidth/window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 
 </body>
