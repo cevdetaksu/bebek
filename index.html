@@ -3,205 +3,93 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bizim Bebeğimiz</title>
-
-<!-- Firebase v8 (kolay ve stabil sürüm) -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
+<title>3D Bebek</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
-
 <style>
-body{
-margin:0;
-background:linear-gradient(to bottom,#fceaff,#ffd6f6);
-font-family:sans-serif;
-text-align:center;
-color:#444;
-overflow:hidden;
-}
-#ui{
-position:absolute;
-bottom:0;
-width:100%;
-background:rgba(255,255,255,0.95);
-padding:10px;
-}
-button{
-padding:10px 15px;
-margin:5px;
-border:none;
-border-radius:10px;
-background:#ff87c2;
-color:white;
-font-size:16px;
-}
-.bar{
-height:10px;
-background:#ddd;
-border-radius:10px;
-margin:5px 0;
-overflow:hidden;
-}
-.fill{
-height:100%;
-background:#ff87c2;
-width:100%;
-}
+body{margin:0;overflow:hidden;background:linear-gradient(to bottom,#ffe6f7,#ffd1f3);}
+canvas{display:block;}
 </style>
 </head>
 <body>
 
-<div id="ui">
-<div>Açlık</div>
-<div class="bar"><div id="hungerBar" class="fill"></div></div>
-
-<div>Mutluluk</div>
-<div class="bar"><div id="happyBar" class="fill"></div></div>
-
-<button onclick="feed()">🍎 Besle</button>
-<button onclick="play()">🧸 Oyna</button>
-<button onclick="sleep()">😴 Uyut</button>
-</div>
-
 <script>
-
-// ✅ SENİN FIREBASE CONFIGİN
-var firebaseConfig = {
-  apiKey: "AIzaSyCmLDHsE_HnPfULTkKo43caR8xfrhJo7A0",
-  authDomain: "bebek-bf416.firebaseapp.com",
-  projectId: "bebek-bf416",
-  storageBucket: "bebek-bf416.firebasestorage.app",
-  messagingSenderId: "636452743271",
-  appId: "1:636452743271:web:23327585b91be6f714ccc2",
-  measurementId: "G-62ZW30Z166"
-};
-
-firebase.initializeApp(firebaseConfig);
-var db = firebase.firestore();
-var babyRef = db.collection("game").doc("babyData");
-
-// Varsayılan değerler
-var hunger = 100;
-var happiness = 100;
-var age = 0;
-
-// Firebase dinleme
-babyRef.onSnapshot(function(doc){
-if(doc.exists){
-var data = doc.data();
-hunger = data.hunger;
-happiness = data.happiness;
-age = data.age;
-updateBars();
-}else{
-save();
-}
-});
-
-// 3D SAHNE
-var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-var renderer = new THREE.WebGLRenderer({alpha:true});
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-camera.position.z = 5;
+camera.position.z = 6;
 
-// Işık
-var light = new THREE.PointLight(0xffffff,1);
-light.position.set(5,5,5);
-scene.add(light);
+// ışık
+const light1 = new THREE.DirectionalLight(0xffffff,1);
+light1.position.set(5,5,5);
+scene.add(light1);
 
-// Kafa
-var headGeometry = new THREE.SphereGeometry(1.2,32,32);
-var skinMaterial = new THREE.MeshStandardMaterial({color:0xffd6c9});
-var head = new THREE.Mesh(headGeometry, skinMaterial);
-scene.add(head);
+const light2 = new THREE.AmbientLight(0xffffff,0.6);
+scene.add(light2);
 
-// Gözler
-var eyeGeo = new THREE.SphereGeometry(0.15,32,32);
-var eyeMat = new THREE.MeshStandardMaterial({color:0x000000});
-var eyeL = new THREE.Mesh(eyeGeo,eyeMat);
-var eyeR = new THREE.Mesh(eyeGeo,eyeMat);
-eyeL.position.set(-0.4,0.2,1);
-eyeR.position.set(0.4,0.2,1);
-head.add(eyeL);
-head.add(eyeR);
+// grup
+const baby = new THREE.Group();
+scene.add(baby);
 
-// Ağız
-var mouthGeo = new THREE.BoxGeometry(0.5,0.1,0.1);
-var mouthMat = new THREE.MeshStandardMaterial({color:0xff4d6d});
-var mouth = new THREE.Mesh(mouthGeo,mouthMat);
-mouth.position.set(0,-0.4,1);
-head.add(mouth);
+// kafa
+const head = new THREE.Mesh(
+new THREE.SphereGeometry(1.4,64,64),
+new THREE.MeshStandardMaterial({color:0xffd6c9, roughness:0.6})
+);
+baby.add(head);
 
-// Animasyon
+// gözler
+const eyeMat = new THREE.MeshStandardMaterial({color:0x222222});
+const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.18,32,32),eyeMat);
+const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.18,32,32),eyeMat);
+eyeL.position.set(-0.45,0.3,1.2);
+eyeR.position.set(0.45,0.3,1.2);
+baby.add(eyeL);
+baby.add(eyeR);
+
+// burun
+const nose = new THREE.Mesh(
+new THREE.SphereGeometry(0.15,32,32),
+new THREE.MeshStandardMaterial({color:0xffc1b0})
+);
+nose.position.set(0,0.05,1.3);
+baby.add(nose);
+
+// ağız
+const mouth = new THREE.Mesh(
+new THREE.TorusGeometry(0.35,0.08,16,100,Math.PI),
+new THREE.MeshStandardMaterial({color:0xff4d6d})
+);
+mouth.rotation.x = Math.PI;
+mouth.position.set(0,-0.5,1.2);
+baby.add(mouth);
+
+// gövde
+const body = new THREE.Mesh(
+new THREE.CapsuleGeometry(0.9,1.5,16,32),
+new THREE.MeshStandardMaterial({color:0xff87c2})
+);
+body.position.y = -2.2;
+baby.add(body);
+
+// animasyon
 function animate(){
 requestAnimationFrame(animate);
-head.rotation.y += 0.005;
-head.position.y = Math.sin(Date.now()*0.002)*0.1;
+baby.rotation.y += 0.003;
+baby.position.y = Math.sin(Date.now()*0.002)*0.15;
 renderer.render(scene,camera);
 }
 animate();
 
-// Yüz ifadesi
-function updateFace(){
-if(hunger < 30){
-mouth.scale.y = 2;
-mouth.position.y = -0.6;
-}
-else if(happiness < 30){
-mouth.scale.y = 0.2;
-mouth.position.y = -0.5;
-}
-else{
-mouth.scale.y = 1;
-mouth.position.y = -0.4;
-}
-}
-
-// Bar güncelle
-function updateBars(){
-document.getElementById("hungerBar").style.width = hunger+"%";
-document.getElementById("happyBar").style.width = happiness+"%";
-updateFace();
-}
-
-// Aksiyonlar
-function feed(){
-hunger = Math.min(100, hunger+20);
-save();
-}
-function play(){
-happiness = Math.min(100, happiness+20);
-save();
-}
-function sleep(){
-hunger = Math.max(0, hunger-5);
-happiness = Math.min(100, happiness+5);
-save();
-}
-
-// Firebase kaydet
-function save(){
-babyRef.set({
-hunger:hunger,
-happiness:happiness,
-age:age
+// resize
+window.addEventListener("resize",()=>{
+camera.aspect = window.innerWidth/window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth, window.innerHeight);
 });
-updateBars();
-}
-
-// Zamanla azalma
-setInterval(function(){
-hunger = Math.max(0, hunger-2);
-happiness = Math.max(0, happiness-1);
-save();
-},60000);
-
-updateBars();
-
 </script>
+
 </body>
 </html>
