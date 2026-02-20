@@ -3,205 +3,205 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bizim 3D Bebeğimiz</title>
+<title>Bizim Bebeğimiz</title>
+
+<!-- Firebase v8 (kolay ve stabil sürüm) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
 
 <style>
 body{
-  margin:0;
-  background:linear-gradient(135deg,#1e1e2f,#2d2d44);
-  font-family:Arial;
-  color:white;
-  text-align:center;
+margin:0;
+background:linear-gradient(to bottom,#fceaff,#ffd6f6);
+font-family:sans-serif;
+text-align:center;
+color:#444;
+overflow:hidden;
 }
 #ui{
-  position:absolute;
-  top:10px;
-  width:100%;
+position:absolute;
+bottom:0;
+width:100%;
+background:rgba(255,255,255,0.95);
+padding:10px;
 }
 button{
-  padding:8px 12px;
-  margin:4px;
-  border:none;
-  border-radius:8px;
-  background:#6c5ce7;
-  color:white;
+padding:10px 15px;
+margin:5px;
+border:none;
+border-radius:10px;
+background:#ff87c2;
+color:white;
+font-size:16px;
 }
 .bar{
-  height:10px;
-  background:#444;
-  margin:5px 20px;
-  border-radius:5px;
+height:10px;
+background:#ddd;
+border-radius:10px;
+margin:5px 0;
+overflow:hidden;
 }
 .fill{
-  height:100%;
-  border-radius:5px;
-}
-canvas{
-  display:block;
+height:100%;
+background:#ff87c2;
+width:100%;
 }
 </style>
 </head>
 <body>
 
 <div id="ui">
-  <div>Yaş: <span id="age">0</span> ay</div>
+<div>Açlık</div>
+<div class="bar"><div id="hungerBar" class="fill"></div></div>
 
-  <div class="bar"><div id="hungerBar" class="fill" style="background:#ff7675;width:100%"></div></div>
-  <div class="bar"><div id="hygieneBar" class="fill" style="background:#74b9ff;width:100%"></div></div>
-  <div class="bar"><div id="happyBar" class="fill" style="background:#55efc4;width:100%"></div></div>
+<div>Mutluluk</div>
+<div class="bar"><div id="happyBar" class="fill"></div></div>
 
-  <button onclick="feed()">Besle</button>
-  <button onclick="clean()">Duş</button>
-  <button onclick="play()">Oyna</button>
+<button onclick="feed()">🍎 Besle</button>
+<button onclick="play()">🧸 Oyna</button>
+<button onclick="sleep()">😴 Uyut</button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = {
+// ✅ SENİN FIREBASE CONFIGİN
+var firebaseConfig = {
   apiKey: "AIzaSyCmLDHsE_HnPfULTkKo43caR8xfrhJo7A0",
   authDomain: "bebek-bf416.firebaseapp.com",
   projectId: "bebek-bf416",
   storageBucket: "bebek-bf416.firebasestorage.app",
   messagingSenderId: "636452743271",
-  appId: "1:636452743271:web:23327585b91be6f714ccc2"
+  appId: "1:636452743271:web:23327585b91be6f714ccc2",
+  measurementId: "G-62ZW30Z166"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore();
-const ref = doc(db,"families","main");
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+var babyRef = db.collection("game").doc("babyData");
+
+// Varsayılan değerler
+var hunger = 100;
+var happiness = 100;
+var age = 0;
+
+// Firebase dinleme
+babyRef.onSnapshot(function(doc){
+if(doc.exists){
+var data = doc.data();
+hunger = data.hunger;
+happiness = data.happiness;
+age = data.age;
+updateBars();
+}else{
+save();
+}
+});
 
 // 3D SAHNE
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2d2d44);
-
-const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
-camera.position.z = 5;
-
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth,window.innerHeight);
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+var renderer = new THREE.WebGLRenderer({alpha:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-const light = new THREE.DirectionalLight(0xffffff,1);
+camera.position.z = 5;
+
+// Işık
+var light = new THREE.PointLight(0xffffff,1);
 light.position.set(5,5,5);
 scene.add(light);
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
 
-const skin = new THREE.MeshStandardMaterial({color:0xffd1b3});
-let eyeMaterial = new THREE.MeshStandardMaterial({color:0x000000});
-const cloth = new THREE.MeshStandardMaterial({color:0x6c5ce7});
-
-const head = new THREE.Mesh(new THREE.SphereGeometry(1,32,32),skin);
+// Kafa
+var headGeometry = new THREE.SphereGeometry(1.2,32,32);
+var skinMaterial = new THREE.MeshStandardMaterial({color:0xffd6c9});
+var head = new THREE.Mesh(headGeometry, skinMaterial);
 scene.add(head);
 
-const body = new THREE.Mesh(new THREE.CylinderGeometry(0.8,1,1.5,32),cloth);
-body.position.y = -1.8;
-scene.add(body);
-
-const eye1 = new THREE.Mesh(new THREE.SphereGeometry(0.15,32,32),eyeMaterial);
-eye1.position.set(-0.3,0.2,0.9);
-scene.add(eye1);
-
-const eye2 = new THREE.Mesh(new THREE.SphereGeometry(0.15,32,32),eyeMaterial);
-eye2.position.set(0.3,0.2,0.9);
-scene.add(eye2);
+// Gözler
+var eyeGeo = new THREE.SphereGeometry(0.15,32,32);
+var eyeMat = new THREE.MeshStandardMaterial({color:0x000000});
+var eyeL = new THREE.Mesh(eyeGeo,eyeMat);
+var eyeR = new THREE.Mesh(eyeGeo,eyeMat);
+eyeL.position.set(-0.4,0.2,1);
+eyeR.position.set(0.4,0.2,1);
+head.add(eyeL);
+head.add(eyeR);
 
 // Ağız
-let mouth = new THREE.Mesh(new THREE.TorusGeometry(0.3,0.07,16,100,Math.PI), 
-  new THREE.MeshStandardMaterial({color:0xff4d4d}));
-mouth.position.set(0,-0.3,0.9);
-scene.add(mouth);
+var mouthGeo = new THREE.BoxGeometry(0.5,0.1,0.1);
+var mouthMat = new THREE.MeshStandardMaterial({color:0xff4d6d});
+var mouth = new THREE.Mesh(mouthGeo,mouthMat);
+mouth.position.set(0,-0.4,1);
+head.add(mouth);
 
 // Animasyon
-let t = 0;
 function animate(){
-  requestAnimationFrame(animate);
-  t += 0.03;
-
-  head.rotation.y = Math.sin(t)*0.2;
-  head.position.y = Math.sin(t)*0.1;
-  body.position.y = -1.8 + Math.sin(t)*0.1;
-
-  renderer.render(scene,camera);
+requestAnimationFrame(animate);
+head.rotation.y += 0.005;
+head.position.y = Math.sin(Date.now()*0.002)*0.1;
+renderer.render(scene,camera);
 }
 animate();
 
-// Firebase başlat
-async function init(){
-  const snap = await getDoc(ref);
-  if(!snap.exists()){
-    await setDoc(ref,{
-      age:0,
-      hunger:100,
-      hygiene:100,
-      happiness:100,
-      lastUpdate:Date.now()
-    });
-  }
-
-  onSnapshot(ref, async (snap)=>{
-    let data = snap.data();
-
-    const days = Math.floor((Date.now()-data.lastUpdate)/(1000*60*60*24));
-    if(days>0){
-      data.age += days;
-      data.hunger = Math.max(0,data.hunger-days*5);
-      data.hygiene = Math.max(0,data.hygiene-days*4);
-      data.happiness = Math.max(0,data.happiness-days*3);
-      data.lastUpdate = Date.now();
-      await updateDoc(ref,data);
-    }
-
-    updateUI(data);
-  });
+// Yüz ifadesi
+function updateFace(){
+if(hunger < 30){
+mouth.scale.y = 2;
+mouth.position.y = -0.6;
 }
-init();
-
-function updateUI(data){
-  age.innerText = data.age;
-  hungerBar.style.width = data.hunger+"%";
-  hygieneBar.style.width = data.hygiene+"%";
-  happyBar.style.width = data.happiness+"%";
-
-  // Yaşa göre büyüme
-  const scale = 1 + data.age/24;
-  head.scale.set(scale,scale,scale);
-  body.scale.set(scale,scale,scale);
-
-  // Mood yüz değişimi
-  scene.remove(mouth);
-
-  if(data.hunger<30){
-    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.3,0.07,16,100,Math.PI),
-      new THREE.MeshStandardMaterial({color:0xff0000}));
-    mouth.rotation.z = Math.PI;
-  }
-  else if(data.happiness>70){
-    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.3,0.07,16,100,Math.PI),
-      new THREE.MeshStandardMaterial({color:0x00ff00}));
-  }
-  else{
-    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.3,0.07,16,100,Math.PI/2),
-      new THREE.MeshStandardMaterial({color:0xffffff}));
-  }
-
-  mouth.position.set(0,-0.3*scale,0.9*scale);
-  scene.add(mouth);
+else if(happiness < 30){
+mouth.scale.y = 0.2;
+mouth.position.y = -0.5;
+}
+else{
+mouth.scale.y = 1;
+mouth.position.y = -0.4;
+}
 }
 
-window.feed = ()=> updateDoc(ref,{hunger:100});
-window.clean = ()=> updateDoc(ref,{hygiene:100});
-window.play = ()=> updateDoc(ref,{happiness:100});
+// Bar güncelle
+function updateBars(){
+document.getElementById("hungerBar").style.width = hunger+"%";
+document.getElementById("happyBar").style.width = happiness+"%";
+updateFace();
+}
 
-window.addEventListener('resize',()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
+// Aksiyonlar
+function feed(){
+hunger = Math.min(100, hunger+20);
+save();
+}
+function play(){
+happiness = Math.min(100, happiness+20);
+save();
+}
+function sleep(){
+hunger = Math.max(0, hunger-5);
+happiness = Math.min(100, happiness+5);
+save();
+}
+
+// Firebase kaydet
+function save(){
+babyRef.set({
+hunger:hunger,
+happiness:happiness,
+age:age
 });
-</script>
+updateBars();
+}
 
+// Zamanla azalma
+setInterval(function(){
+hunger = Math.max(0, hunger-2);
+happiness = Math.max(0, happiness-1);
+save();
+},60000);
+
+updateBars();
+
+</script>
 </body>
 </html>
