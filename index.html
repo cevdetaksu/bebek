@@ -132,7 +132,7 @@ onAuthStateChanged(auth,(user)=>{
   }
 });
 
-window.createFamily = async ()=>{
+window.createFamily = ()=>{
   const code = Math.random().toString(36).substring(2,8);
   currentFamily = code;
   familyCode.innerText="Aile Kodunuz: "+code;
@@ -163,15 +163,40 @@ function startGame(){
   gameBox.style.display="block";
   const ref = doc(db,"families",currentFamily);
 
-  onSnapshot(ref,(snap)=>{
+  onSnapshot(ref, async (snap)=>{
     let data=snap.data();
-    babyName.innerText=data.name+" ("+data.gender+")";
-    age.innerText=data.age;
-    hungerBar.style.width=data.hunger+"%";
-    hygieneBar.style.width=data.hygiene+"%";
-    happyBar.style.width=data.happiness+"%";
-    babyImage.src="https://images.unsplash.com/photo-1607746882042-944635dfe10e";
+
+    // 1 Gün = 1 Ay
+    const daysPassed = Math.floor((Date.now()-data.lastUpdate)/(1000*60*60*24));
+    if(daysPassed>0){
+      data.age += daysPassed;
+      data.hunger -= daysPassed*5;
+      data.hygiene -= daysPassed*4;
+      data.happiness -= daysPassed*3;
+      data.lastUpdate = Date.now();
+      await updateDoc(ref,data);
+    }
+
+    updateUI(data);
   });
+}
+
+function updateUI(data){
+  babyName.innerText=data.name+" ("+data.gender+")";
+  age.innerText=data.age;
+
+  hungerBar.style.width=data.hunger+"%";
+  hygieneBar.style.width=data.hygiene+"%";
+  happyBar.style.width=data.happiness+"%";
+
+  // Mood sistemi
+  if(data.hunger<30){
+    babyImage.src="https://i.imgur.com/8Km9tLL.png"; // üzgün AI bebek
+  }else if(data.happiness>70){
+    babyImage.src="https://i.imgur.com/1bX5QH6.png"; // mutlu AI bebek
+  }else{
+    babyImage.src="https://i.imgur.com/ZcLLrkY.png"; // normal AI bebek
+  }
 }
 
 window.feed=()=>updateStat("hunger");
@@ -183,7 +208,29 @@ async function updateStat(type){
   await updateDoc(ref,{[type]:100});
 }
 
-window.resetGame=()=>setupBox.style.display="block";
+window.resetGame=()=>{
+  setupBox.style.display="block";
+};
+
+window.talk = async ()=>{
+  const ref=doc(db,"families",currentFamily);
+  const snap=await getDoc(ref);
+  let data=snap.data();
+  let message="";
+
+  if(data.age<12){
+    message="Agugu 🍼";
+  }else if(data.hunger<40){
+    message="Anne acıktım...";
+  }else if(data.happiness>70){
+    message="Baba oyun oynayalım mı?";
+  }else{
+    message="Sizi seviyorum ❤️";
+  }
+
+  alert(message);
+};
 </script>
 </body>
 </html>
+
