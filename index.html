@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bizim Bebeğimiz</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+
+<style>
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:linear-gradient(135deg,#dfe9f3,#ffffff);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.container{
+  width:360px;
+  background:white;
+  padding:20px;
+  border-radius:20px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.1);
+}
+h2{text-align:center;}
+button{
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  border:none;
+  border-radius:10px;
+  background:#4CAF50;
+  color:white;
+  font-size:16px;
+  cursor:pointer;
+}
+input{
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  border-radius:10px;
+  border:1px solid #ccc;
+}
+.bar{
+  height:15px;
+  border-radius:10px;
+  background:#eee;
+  margin-top:5px;
+}
+.fill{
+  height:100%;
+  border-radius:10px;
+}
+#babyImage{
+  width:100%;
+  border-radius:15px;
+  margin-top:10px;
+}
+</style>
+</head>
+<body>
+
+<div class="container" id="authBox">
+  <h2>Giriş Yap</h2>
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Şifre">
+  <button onclick="register()">Kayıt Ol</button>
+  <button onclick="login()">Giriş Yap</button>
+</div>
+
+<div class="container" id="gameBox" style="display:none;">
+  <h2 id="babyName"></h2>
+  <img id="babyImage" src="">
+  <p>Yaş: <span id="age"></span> ay</p>
+
+  <p>Açlık</p>
+  <div class="bar"><div id="hungerBar" class="fill"></div></div>
+
+  <p>Hijyen</p>
+  <div class="bar"><div id="hygieneBar" class="fill"></div></div>
+
+  <p>Mutluluk</p>
+  <div class="bar"><div id="happyBar" class="fill"></div></div>
+
+  <button onclick="feed()">Besle</button>
+  <button onclick="clean()">Duş Aldır</button>
+  <button onclick="play()">Oyna</button>
+  <button onclick="resetGame()">Yeni Oyuna Başla</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCmLDHsE_HnPfULTkKo43caR8xfrhJo7A0",
+  authDomain: "bebek-bf416.firebaseapp.com",
+  projectId: "bebek-bf416",
+  storageBucket: "bebek-bf416.firebasestorage.app",
+  messagingSenderId: "636452743271",
+  appId: "1:636452743271:web:23327585b91be6f714ccc2"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore();
+
+let currentUser;
+
+window.register = () => {
+  createUserWithEmailAndPassword(auth,email.value,password.value);
+};
+
+window.login = () => {
+  signInWithEmailAndPassword(auth,email.value,password.value);
+};
+
+onAuthStateChanged(auth, async (user) => {
+  if(user){
+    currentUser = user;
+    authBox.style.display="none";
+    gameBox.style.display="block";
+    loadBaby();
+  }
+});
+
+async function loadBaby(){
+  const ref = doc(db,"babies","main");
+  const snap = await getDoc(ref);
+
+  if(!snap.exists()){
+    await setDoc(ref,{
+      name:"Bebeğimiz",
+      age:0,
+      hunger:100,
+      hygiene:100,
+      happiness:100,
+      lastUpdate:Date.now()
+    });
+  }
+
+  updateBaby();
+}
+
+async function updateBaby(){
+  const ref = doc(db,"babies","main");
+  const snap = await getDoc(ref);
+  let data = snap.data();
+
+  const daysPassed = Math.floor((Date.now()-data.lastUpdate)/(1000*60*60*24));
+  if(daysPassed>0){
+    data.age += daysPassed;
+    data.hunger -= daysPassed*5;
+    data.hygiene -= daysPassed*5;
+    data.happiness -= daysPassed*3;
+    data.lastUpdate = Date.now();
+    await updateDoc(ref,data);
+  }
+
+  babyName.innerText=data.name;
+  age.innerText=data.age;
+  hungerBar.style.width=data.hunger+"%";
+  hungerBar.style.background="red";
+  hygieneBar.style.width=data.hygiene+"%";
+  hygieneBar.style.background="blue";
+  happyBar.style.width=data.happiness+"%";
+  happyBar.style.background="green";
+
+  babyImage.src="https://images.unsplash.com/photo-1607746882042-944635dfe10e";
+}
+
+window.feed = async ()=>{
+  const ref = doc(db,"babies","main");
+  await updateDoc(ref,{hunger:100});
+  updateBaby();
+};
+
+window.clean = async ()=>{
+  const ref = doc(db,"babies","main");
+  await updateDoc(ref,{hygiene:100});
+  updateBaby();
+};
+
+window.play = async ()=>{
+  const ref = doc(db,"babies","main");
+  await updateDoc(ref,{happiness:100});
+  updateBaby();
+};
+
+window.resetGame = async ()=>{
+  const ref = doc(db,"babies","main");
+  await setDoc(ref,{
+    name:"Yeni Bebek",
+    age:0,
+    hunger:100,
+    hygiene:100,
+    happiness:100,
+    lastUpdate:Date.now()
+  });
+  updateBaby();
+};
+
+</script>
+</body>
+</html>
