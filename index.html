@@ -3,15 +3,57 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>3D Bebek</title>
+<title>Bizim Bebeğimiz</title>
 <style>
-body{margin:0;overflow:hidden;background:pink;}
+body{margin:0;overflow:hidden;background:linear-gradient(#ffe6f7,#ffd1f3);}
+#ui{
+position:fixed;
+bottom:0;
+width:100%;
+background:rgba(255,255,255,0.9);
+padding:10px;
+text-align:center;
+}
+button{
+padding:8px 12px;
+margin:5px;
+border:none;
+border-radius:10px;
+background:#ff87c2;
+color:white;
+font-size:16px;
+}
+.bar{
+height:8px;
+background:#ddd;
+border-radius:10px;
+margin:5px;
+overflow:hidden;
+}
+.fill{
+height:100%;
+background:#ff4d6d;
+width:100%;
+}
 </style>
 </head>
 <body>
 
+<div id="ui">
+Açlık
+<div class="bar"><div id="hungerBar" class="fill"></div></div>
+Mutluluk
+<div class="bar"><div id="happyBar" class="fill"></div></div>
+<br>
+<button onclick="feed()">🍎 Besle</button>
+<button onclick="play()">🧸 Oyna</button>
+</div>
+
 <script type="module">
 import * as THREE from "https://unpkg.com/three@0.152.2/build/three.module.js";
+
+let hunger = 100;
+let happiness = 100;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -19,24 +61,113 @@ const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-camera.position.z = 5;
+camera.position.z = 6;
 
-const light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(5,5,5);
-scene.add(light);
+const light1 = new THREE.DirectionalLight(0xffffff,1);
+light1.position.set(5,5,5);
+scene.add(light1);
 
+const light2 = new THREE.AmbientLight(0xffffff,0.6);
+scene.add(light2);
+
+const baby = new THREE.Group();
+scene.add(baby);
+
+// Kafa
 const head = new THREE.Mesh(
-new THREE.SphereGeometry(1.5,64,64),
+new THREE.SphereGeometry(1.3,64,64),
 new THREE.MeshStandardMaterial({color:0xffd6c9})
 );
-scene.add(head);
+baby.add(head);
 
+// Gözler
+const eyeMat = new THREE.MeshStandardMaterial({color:0x222222});
+const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.15,32,32),eyeMat);
+const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.15,32,32),eyeMat);
+eyeL.position.set(-0.4,0.3,1.1);
+eyeR.position.set(0.4,0.3,1.1);
+baby.add(eyeL);
+baby.add(eyeR);
+
+// Ağız
+const mouthMat = new THREE.MeshStandardMaterial({color:0xff4d6d});
+const mouth = new THREE.Mesh(
+new THREE.TorusGeometry(0.35,0.08,16,100,Math.PI),
+mouthMat
+);
+mouth.rotation.x = Math.PI;
+mouth.position.set(0,-0.4,1.1);
+baby.add(mouth);
+
+// Gövde
+const body = new THREE.Mesh(
+new THREE.CapsuleGeometry(0.9,1.6,16,32),
+new THREE.MeshStandardMaterial({color:0xff87c2})
+);
+body.position.y = -2.2;
+baby.add(body);
+
+// Kollar
+const armL = new THREE.Mesh(
+new THREE.CapsuleGeometry(0.2,1,8,16),
+new THREE.MeshStandardMaterial({color:0xffd6c9})
+);
+armL.position.set(-1.3,-1.8,0);
+armL.rotation.z = Math.PI/4;
+baby.add(armL);
+
+const armR = armL.clone();
+armR.position.x = 1.3;
+armR.rotation.z = -Math.PI/4;
+baby.add(armR);
+
+// Yüz güncelle
+function updateFace(){
+if(hunger < 30){
+mouth.scale.y = 2;
+}
+else if(happiness < 30){
+mouth.scale.y = 0.3;
+}
+else{
+mouth.scale.y = 1;
+}
+}
+
+// Stat bar güncelle
+function updateBars(){
+document.getElementById("hungerBar").style.width = hunger+"%";
+document.getElementById("happyBar").style.width = happiness+"%";
+updateFace();
+}
+
+window.feed = function(){
+hunger = Math.min(100, hunger+20);
+updateBars();
+}
+
+window.play = function(){
+happiness = Math.min(100, happiness+20);
+updateBars();
+}
+
+// Zamanla azalma
+setInterval(()=>{
+hunger = Math.max(0,hunger-1);
+happiness = Math.max(0,happiness-1);
+updateBars();
+},5000);
+
+// Animasyon
 function animate(){
 requestAnimationFrame(animate);
-head.rotation.y += 0.01;
+baby.rotation.y += 0.003;
+baby.position.y = Math.sin(Date.now()*0.002)*0.15;
 renderer.render(scene,camera);
 }
 animate();
+
+updateBars();
 
 window.addEventListener("resize",()=>{
 camera.aspect = window.innerWidth/window.innerHeight;
