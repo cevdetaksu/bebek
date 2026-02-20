@@ -5,15 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bizim Bebeğimiz</title>
 
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
-
 <style>
 body{
   margin:0;
   font-family:Arial, sans-serif;
-  background:linear-gradient(135deg,#dfe9f3,#ffffff);
+  background:linear-gradient(135deg,#f5f7fa,#c3cfe2);
   display:flex;
   justify-content:center;
   align-items:center;
@@ -24,7 +20,7 @@ body{
   background:white;
   padding:20px;
   border-radius:20px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.1);
+  box-shadow:0 15px 40px rgba(0,0,0,0.1);
 }
 h2{text-align:center;}
 button{
@@ -38,43 +34,57 @@ button{
   font-size:16px;
   cursor:pointer;
 }
-input{
+input,select{
   width:100%;
   padding:10px;
   margin-top:10px;
   border-radius:10px;
   border:1px solid #ccc;
 }
-.bar{
-  height:15px;
+.bar{height:15px;border-radius:10px;background:#eee;margin-top:5px;}
+.fill{height:100%;border-radius:10px;}
+#babyImage{width:100%;border-radius:15px;margin-top:10px;}
+.codeBox{
+  background:#f1f1f1;
+  padding:8px;
   border-radius:10px;
-  background:#eee;
-  margin-top:5px;
-}
-.fill{
-  height:100%;
-  border-radius:10px;
-}
-#babyImage{
-  width:100%;
-  border-radius:15px;
+  text-align:center;
   margin-top:10px;
+  font-weight:bold;
 }
 </style>
 </head>
 <body>
 
 <div class="container" id="authBox">
-  <h2>Giriş Yap</h2>
+  <h2>Giriş</h2>
   <input type="email" id="email" placeholder="Email">
   <input type="password" id="password" placeholder="Şifre">
   <button onclick="register()">Kayıt Ol</button>
   <button onclick="login()">Giriş Yap</button>
 </div>
 
+<div class="container" id="familyBox" style="display:none;">
+  <h2>Aile Oluştur</h2>
+  <button onclick="createFamily()">Yeni Aile Oluştur</button>
+  <input id="joinCode" placeholder="Aile Kodu Gir">
+  <button onclick="joinFamily()">Aileye Katıl</button>
+  <div id="familyCode" class="codeBox"></div>
+</div>
+
+<div class="container" id="setupBox" style="display:none;">
+  <h2>Bebeğinizi Oluşturun</h2>
+  <input id="babyNameInput" placeholder="Bebek İsmi">
+  <select id="genderSelect">
+    <option value="Kız">Kız</option>
+    <option value="Erkek">Erkek</option>
+  </select>
+  <button onclick="createBaby()">Başlat</button>
+</div>
+
 <div class="container" id="gameBox" style="display:none;">
   <h2 id="babyName"></h2>
-  <img id="babyImage" src="">
+  <img id="babyImage">
   <p>Yaş: <span id="age"></span> ay</p>
 
   <p>Açlık</p>
@@ -89,13 +99,13 @@ input{
   <button onclick="feed()">Besle</button>
   <button onclick="clean()">Duş Aldır</button>
   <button onclick="play()">Oyna</button>
-  <button onclick="resetGame()">Yeni Oyuna Başla</button>
+  <button onclick="resetGame()">Yeni Oyun</button>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCmLDHsE_HnPfULTkKo43caR8xfrhJo7A0",
@@ -110,101 +120,70 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore();
 
-let currentUser;
+let currentFamily = null;
 
-window.register = () => {
-  createUserWithEmailAndPassword(auth,email.value,password.value);
-};
+window.register = ()=> createUserWithEmailAndPassword(auth,email.value,password.value);
+window.login = ()=> signInWithEmailAndPassword(auth,email.value,password.value);
 
-window.login = () => {
-  signInWithEmailAndPassword(auth,email.value,password.value);
-};
-
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth,(user)=>{
   if(user){
-    currentUser = user;
     authBox.style.display="none";
-    gameBox.style.display="block";
-    loadBaby();
+    familyBox.style.display="block";
   }
 });
 
-async function loadBaby(){
-  const ref = doc(db,"babies","main");
-  const snap = await getDoc(ref);
-
-  if(!snap.exists()){
-    await setDoc(ref,{
-      name:"Bebeğimiz",
-      age:0,
-      hunger:100,
-      hygiene:100,
-      happiness:100,
-      lastUpdate:Date.now()
-    });
-  }
-
-  updateBaby();
-}
-
-async function updateBaby(){
-  const ref = doc(db,"babies","main");
-  const snap = await getDoc(ref);
-  let data = snap.data();
-
-  const daysPassed = Math.floor((Date.now()-data.lastUpdate)/(1000*60*60*24));
-  if(daysPassed>0){
-    data.age += daysPassed;
-    data.hunger -= daysPassed*5;
-    data.hygiene -= daysPassed*5;
-    data.happiness -= daysPassed*3;
-    data.lastUpdate = Date.now();
-    await updateDoc(ref,data);
-  }
-
-  babyName.innerText=data.name;
-  age.innerText=data.age;
-  hungerBar.style.width=data.hunger+"%";
-  hungerBar.style.background="red";
-  hygieneBar.style.width=data.hygiene+"%";
-  hygieneBar.style.background="blue";
-  happyBar.style.width=data.happiness+"%";
-  happyBar.style.background="green";
-
-  babyImage.src="https://images.unsplash.com/photo-1607746882042-944635dfe10e";
-}
-
-window.feed = async ()=>{
-  const ref = doc(db,"babies","main");
-  await updateDoc(ref,{hunger:100});
-  updateBaby();
+window.createFamily = async ()=>{
+  const code = Math.random().toString(36).substring(2,8);
+  currentFamily = code;
+  familyCode.innerText="Aile Kodunuz: "+code;
 };
 
-window.clean = async ()=>{
-  const ref = doc(db,"babies","main");
-  await updateDoc(ref,{hygiene:100});
-  updateBaby();
+window.joinFamily = ()=>{
+  currentFamily = joinCode.value;
+  setupBox.style.display="block";
+  familyBox.style.display="none";
 };
 
-window.play = async ()=>{
-  const ref = doc(db,"babies","main");
-  await updateDoc(ref,{happiness:100});
-  updateBaby();
-};
-
-window.resetGame = async ()=>{
-  const ref = doc(db,"babies","main");
+window.createBaby = async ()=>{
+  const ref = doc(db,"families",currentFamily);
   await setDoc(ref,{
-    name:"Yeni Bebek",
+    name:babyNameInput.value,
+    gender:genderSelect.value,
     age:0,
     hunger:100,
     hygiene:100,
     happiness:100,
     lastUpdate:Date.now()
   });
-  updateBaby();
+  startGame();
 };
 
+function startGame(){
+  setupBox.style.display="none";
+  gameBox.style.display="block";
+  const ref = doc(db,"families",currentFamily);
+
+  onSnapshot(ref,(snap)=>{
+    let data=snap.data();
+    babyName.innerText=data.name+" ("+data.gender+")";
+    age.innerText=data.age;
+    hungerBar.style.width=data.hunger+"%";
+    hygieneBar.style.width=data.hygiene+"%";
+    happyBar.style.width=data.happiness+"%";
+    babyImage.src="https://images.unsplash.com/photo-1607746882042-944635dfe10e";
+  });
+}
+
+window.feed=()=>updateStat("hunger");
+window.clean=()=>updateStat("hygiene");
+window.play=()=>updateStat("happiness");
+
+async function updateStat(type){
+  const ref=doc(db,"families",currentFamily);
+  await updateDoc(ref,{[type]:100});
+}
+
+window.resetGame=()=>setupBox.style.display="block";
 </script>
 </body>
 </html>
